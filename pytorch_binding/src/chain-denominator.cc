@@ -32,32 +32,26 @@ DenominatorComputation::DenominatorComputation(
     den_graph_(den_graph),
     num_sequences_(num_sequences),
     frames_per_sequence_(nnet_output.size(0) / num_sequences_),
+    exp_nnet_output_transposed_(torch::empty_like(nnet_output.transpose(0, 1))),
+    nnet_output_deriv_transposed_(torch::zeros(
+          {nnet_output.size(1),
+           std::min<int32>(nnet_output.size(0),
+                           static_cast<int32>(kMaxDerivTimeSteps) *
+                           num_sequences_)},
+          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+    alpha_(torch::empty(
+          {frames_per_sequence_ + 1, den_graph_.NumStates() * num_sequences_ + num_sequences_},
+          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+    beta_(torch::empty(
+          {2, den_graph_.NumStates() * num_sequences_ + num_sequences_},
+          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+    tot_prob_(torch::empty({num_sequences_},
+          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+    tot_log_prob_(torch::empty({num_sequences_},
+          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+    log_correction_term_(torch::empty({num_sequences_},
+          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
     ok_(true) {
-
-  int32 alpha_beta_size = den_graph_.NumStates() * num_sequences_;
-
-#if HAVE_CUDA == 1
-  if (nnet_output.is_cuda()) {
-    nnet_output_deriv_transposed_ = torch::CUDA(at::kFloat).empty({0, 0});
-    alpha_ = torch::CUDA(at::kFloat).empty({0, 0});
-    beta_ = torch::CUDA(at::kFloat).empty({0, 0});
-    tot_prob_ = torch::CUDA(at::kFloat).empty({0, 0});
-    tot_log_prob_ = torch::CUDA(at::kFloat).empty({0, 0});
-    log_correction_term_ = torch::CUDA(at::kFloat).empty({0, 0});
-    exp_nnet_output_transposed_ = torch::CUDA(at::kFloat).empty({0, 0});
-  }
-#endif
-  nnet_output_deriv_transposed_.resize_({nnet_output.size(1),
-    std::min<int32>(nnet_output.size(0),
-                    static_cast<int32>(kMaxDerivTimeSteps) *
-                    num_sequences_)});
-  nnet_output_deriv_transposed_.zero_();
-  alpha_.resize_({frames_per_sequence_ + 1,
-         alpha_beta_size + num_sequences_});
-  beta_.resize_({2, alpha_beta_size + num_sequences_});
-  tot_prob_.resize_({num_sequences_});
-  tot_log_prob_.resize_({num_sequences_});
-  log_correction_term_.resize_({num_sequences_});
   // We don't let leaky_hmm_coefficient be exactly zero (although that would
   // make sense mathematically, corresponding to "turning off" the leaky HMM),
   // because that would lead to underflow and eventually NaN's or inf's
@@ -66,15 +60,14 @@ DenominatorComputation::DenominatorComputation(
   assert(opts_.leaky_hmm_coefficient > 0.0 &&
          opts_.leaky_hmm_coefficient < 1.0);
   // make sure the alpha sums and beta sums are zeroed.
-  alpha_.narrow(1, alpha_beta_size, num_sequences_).zero_();
-  beta_.narrow(1, alpha_beta_size, num_sequences_).zero_();
+  alpha_.narrow(1, den_graph_.NumStates() * num_sequences_, num_sequences_).zero_();
+  beta_.narrow(1, den_graph_.NumStates() * num_sequences_, num_sequences_).zero_();
 
   assert(nnet_output.size(0) % num_sequences == 0);
   // the kStrideEqualNumCols argument means we'll allocate a contiguous block of
   // memory for this; it is added to ensure that the same block of memory
   // (cached in the allocator) can be used for xent_output_deriv when allocated
   // from chain-training.cc.
-  exp_nnet_output_transposed_.resize_as_(nnet_output.transpose(0, 1));
   exp_nnet_output_transposed_.copy_(nnet_output.transpose(0, 1));
   // We limit the nnet output to the range [-30,30] before doing the exp;
   // this avoids NaNs appearing in the forward-backward computation, which
@@ -275,8 +268,6 @@ at::Tensor DenominatorComputation::Forward() {
 }
 
 at::Tensor DenominatorComputation::ComputeTotLogLike() {
-  tot_prob_.resize_({num_sequences_});
-
   int32 alpha_size = den_graph_.NumStates() * num_sequences_;
 
   // View the last alpha-dash as a matrix of size num-hmm-states by num-sequences.
@@ -289,7 +280,6 @@ at::Tensor DenominatorComputation::ComputeTotLogLike() {
   tot_prob_.copy_(at::sum(last_alpha_dash, 0));
 
   // we should probably add an ApplyLog() function that takes a vector argument.
-  tot_log_prob_.resize_as_(tot_prob_);
   tot_log_prob_.copy_(tot_prob_.log());
   at::Tensor tot_log_prob = tot_log_prob_.sum();
 
@@ -508,8 +498,8 @@ void DenominatorComputation::BetaGeneralFrameDebug(int32 t) {
   at::Tensor this_log_prob_deriv = nnet_output_deriv_transposed_
     .narrow(1, t_wrapped * num_sequences_, num_sequences_);
   
-  BaseFloat alpha_beta_product = at::Scalar(at::dot(this_alpha_dash, this_beta_dash)).toFloat(),
-      this_log_prob_deriv_sum = at::Scalar(this_log_prob_deriv.sum()).toFloat();
+  BaseFloat alpha_beta_product = at::dot(this_alpha_dash, this_beta_dash)._local_scalar().to<BaseFloat>(),
+      this_log_prob_deriv_sum = this_log_prob_deriv.sum()._local_scalar().to<BaseFloat>();
 
   if (!ApproxEqual(alpha_beta_product, num_sequences_)) {
     std::cerr  << "On time " << t << ", alpha-beta product "

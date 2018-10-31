@@ -30,25 +30,25 @@ DenominatorGraph::DenominatorGraph(const fst::StdVectorFst &fst,
                                    bool is_cuda):
     forward_transitions_(torch::zeros({0, 0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kInt()))),
+          .dtype(at::kInt))),
     forward_transition_probs_(torch::zeros({0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kFloat()))),
+          .dtype(at::kFloat))),
     forward_transition_indices_(torch::zeros({0, 0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kInt()))),
+          .dtype(at::kInt))),
     backward_transitions_(torch::zeros({0, 0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kInt()))),
+          .dtype(at::kInt))),
     backward_transition_probs_(torch::zeros({0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kFloat()))),
+          .dtype(at::kFloat))),
     backward_transition_indices_(torch::zeros({0, 0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kInt()))),
+          .dtype(at::kInt))),
     initial_probs_(torch::zeros({0},
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
-          .dtype(at::kInt()))),
+          .dtype(at::kFloat))),
     num_pdfs_(num_pdfs) {
   if (GetVerboseLevel() > 2)
     py::print("Before initialization, transition-probs=", forward_transition_probs_);
@@ -156,7 +156,8 @@ void DenominatorGraph::SetInitialProbs(const fst::StdVectorFst &fst) {
   // we normalize each state so that it sums to one (including
   // final-probs)... this is needed because the 'chain' code doesn't
   // have transition probabilities.
-  at::Tensor normalizing_factor = torch::CPU(at::kDouble).zeros(num_states);
+  at::Tensor normalizing_factor = torch::zeros({num_states}, 
+      at::device(at::kCPU).dtype(at::kDouble));
   auto nf_a = normalizing_factor.accessor<double, 1>();
  
   for (int32 s = 0; s < num_states; s++) {
@@ -169,9 +170,9 @@ void DenominatorGraph::SetInitialProbs(const fst::StdVectorFst &fst) {
     nf_a[s] = 1.0 / tot_prob;
   }
 
-  at::Tensor cur_prob = torch::CPU(at::kDouble).zeros(num_states),
-         next_prob = torch::CPU(at::kDouble).zeros(num_states),
-         avg_prob = torch::CPU(at::kDouble).zeros(num_states);
+  at::Tensor cur_prob = torch::zeros_like(normalizing_factor),
+         next_prob = torch::zeros_like(normalizing_factor),
+         avg_prob = torch::zeros_like(normalizing_factor);
 
   cur_prob[fst.Start()] = 1.0;
   for (int32 iter = 0; iter < num_iters; iter++) {
@@ -192,7 +193,7 @@ void DenominatorGraph::SetInitialProbs(const fst::StdVectorFst &fst) {
     next_prob.zero_();
     // Renormalize, beause the HMM won't sum to one even after the
     // previous normalization (due to final-probs).
-    cur_prob.mul_(at::Scalar(1.0 / cur_prob.sum()));
+    cur_prob.mul_(1.0 / cur_prob.sum());
   }
 
   initial_probs_.resize_(num_states);

@@ -15,14 +15,16 @@ T = 100
 
 pychain.set_verbose_level(4)
 
+cuda0 = torch.device('cuda:0')
+
 with pychain.ostream_redirect():
-    den_fst = simplefst.StdVectorFst.read("/export/a16/vmanoha1/pychain/tests/den.fst")
-    den_graph = pychain.DenominatorGraph(den_fst, D)
+    den_fst = simplefst.StdVectorFst.read("tests/den.fst")
+    den_graph = pychain.DenominatorGraph(den_fst, D, True)
 
     N = den_graph.num_states()
 
-    nnet_output = torch.zeros(B * T, D)
-    nnet_output_deriv = torch.zeros(B * T, D)
+    nnet_output = torch.zeros(B * T, D, device=cuda0)
+    nnet_output_deriv = torch.zeros(B * T, D, device=cuda0)
 
     training_opts = pychain.ChainTrainingOptions()
     training_opts.leaky_hmm_coefficient = 0.0
