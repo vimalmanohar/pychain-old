@@ -26,7 +26,29 @@
 namespace chain {
 
 DenominatorGraph::DenominatorGraph(const fst::StdVectorFst &fst,
-                                   int32 num_pdfs):
+                                   int32 num_pdfs,
+                                   is_cuda = false):
+    forward_transitions_(torch::zeros({0, 0}, 
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kInt()))),
+    forward_transition_probs_(torch::zeros({0}, 
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kFloat()))),
+    forward_transition_indices_(torch::zeros({0, 0}, 
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kInt()))),
+    backward_transitions_(torch::zeros({0, 0}, 
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kInt()))),
+    backward_transition_probs_(torch::zeros({0}, 
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kFloat()))),
+    backward_transition_indices_(torch::zeros({0, 0}, 
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kInt()))),
+    initial_probs_(torch::zeros({0},
+          at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
+          .dtype(at::kInt()))),
     num_pdfs_(num_pdfs) {
   if (GetVerboseLevel() > 2)
     py::print("Before initialization, transition-probs=", forward_transition_probs_);

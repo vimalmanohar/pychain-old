@@ -4,9 +4,9 @@
 #define HAVE_CUDA 0
 
 #if HAVE_CUDA == 1
-#define CPU_OR_CUDA CUDA
+#define CPU_OR_CUDA kCUDA
 #else
-#define CPU_OR_CUDA CPU
+#define CPU_OR_CUDA kCPU
 #endif
 typedef int int32;
 typedef long int64;
