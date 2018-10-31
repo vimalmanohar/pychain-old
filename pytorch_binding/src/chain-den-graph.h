@@ -51,7 +51,7 @@ class DenominatorGraph {
   // Initialize from epsilon-free acceptor FST with pdf-ids plus one as the
   // labels.  'num_pdfs' is only needeed for checking.
   DenominatorGraph(const fst::StdVectorFst &fst,
-                   int32 num_pdfs);
+                   int32 num_pdfs, bool is_cuda = false);
 
   const at::Tensor &ForwardTransitions() const { return forward_transitions_; }
   const at::Tensor &ForwardTransitionProbs() const { return forward_transition_probs_; }

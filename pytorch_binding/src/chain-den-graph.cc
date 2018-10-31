@@ -27,7 +27,7 @@ namespace chain {
 
 DenominatorGraph::DenominatorGraph(const fst::StdVectorFst &fst,
                                    int32 num_pdfs,
-                                   is_cuda = false):
+                                   bool is_cuda):
     forward_transitions_(torch::zeros({0, 0}, 
           at::device(is_cuda ? at::CPU_OR_CUDA : at::kCPU)
           .dtype(at::kInt()))),
