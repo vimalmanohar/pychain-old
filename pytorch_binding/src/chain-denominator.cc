@@ -141,7 +141,7 @@ void DenominatorComputation::AlphaGeneralFrame(int32 t) {
 			     backward_transitions.data<int32>(),
 			     backward_transition_probs.data<BaseFloat>(),
 			     num_sequences, den_graph_.NumStates(),
-			     probs.data<BaseFloat>(), probs.size(1), 
+			     probs.data<BaseFloat>(), probs.stride(0),
 			     prev_alpha_dash.data<BaseFloat>(), 
 			     this_alpha.data<BaseFloat>());
 
@@ -153,7 +153,7 @@ void DenominatorComputation::AlphaGeneralFrame(int32 t) {
         // moving some of the array pointers and making the call again.
         //backward_transitions += dimGrid.y;
         backward_transition_indices = backward_transition_indices.narrow(
-            0, dimGrid.y, backward_transition_indices.size(1) - dimGrid.y);
+            0, dimGrid.y, backward_transition_indices.size(0) - dimGrid.y);
         //this_alpha += dimGrid.y * num_sequences;
         this_alpha = this_alpha.narrow(
             0, dimGrid.y * num_sequences, 
@@ -443,7 +443,7 @@ void DenominatorComputation::BetaDashGeneralFrame(int32 t) {
         // the call again.
 
         forward_transition_indices = forward_transition_indices.narrow(
-            0, dimGrid.y, forward_transition_indices.size(1) - dimGrid.y);
+            0, dimGrid.y, forward_transition_indices.size(0) - dimGrid.y);
         //this_alpha_dash += dimGrid.y * num_sequences;
         this_alpha_dash = this_alpha_dash.narrow(
             0, dimGrid.y * num_sequences, 
@@ -515,8 +515,8 @@ void DenominatorComputation::BetaGeneralFrameDebug(int32 t) {
   if (!ApproxEqual(alpha_beta_product, num_sequences_)) {
     std::cerr  << "On time " << t << ", alpha-beta product "
                << alpha_beta_product << " != " << num_sequences_
-               << " alpha-dash-sum = " << at::sum(this_alpha_dash)
-               << ", beta-dash-sum = " << at::sum(this_beta_dash)
+               << " alpha-dash-sum = " << at::sum(this_alpha_dash)._local_scalar().to<BaseFloat>()
+               << ", beta-dash-sum = " << at::sum(this_beta_dash)._local_scalar().to<BaseFloat>()
                << std::endl;
     if (fabs(alpha_beta_product - num_sequences_) > 2.0) {
       std::cerr << "Excessive error detected, will abandon this minibatch"

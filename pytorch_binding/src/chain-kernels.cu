@@ -19,7 +19,6 @@
 
 #include <cfloat>
 #include "chain-kernels-ansi.h"
-#include <stdio.h>
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 200
 #error - Kaldi no longer supports CC1.x devices. Please use a newer GPU or \
@@ -101,11 +100,10 @@ __device__ inline void atomic_add_thresholded(Real* address, Real value) {
 // note that num_sequences == the number of elements in the minibatch, and we
 // insist they all have the same number of time steps.
 // note: 'probs' is indexed by sequence-index + (pdf-index * prob_stride).
-//template <typename BaseFloat>
 __global__
 static void _cuda_chain_hmm_forward(const int32_cuda *backward_transition_indices,
                                     const int32_cuda *backward_transitions,
-				    const BaseFloat *backward_transition_probs,
+                                    const BaseFloat *backward_transition_probs,
                                     int32_cuda num_sequences,
                                     int32_cuda num_hmm_states,
                                     const BaseFloat *probs,
@@ -146,7 +144,7 @@ static void _cuda_chain_hmm_forward(const int32_cuda *backward_transition_indice
         prev_hmm_state1 = backward_transitions[(trans_i + 1) * 2];
     BaseFloat pseudo_loglike0 = probs[pdf_id0 * prob_stride + s],
              this_prev_alpha0 = prev_alpha[prev_hmm_state0 * num_sequences + s],
-             pseudo_loglike1 = probs[pdf_id1 * prob_stride + s],
+              pseudo_loglike1 = probs[pdf_id1 * prob_stride + s],
              this_prev_alpha1 = prev_alpha[prev_hmm_state1 * num_sequences + s];
 
     this_tot_alpha += this_prev_alpha0 * transition_prob0 * pseudo_loglike0 +
@@ -177,10 +175,9 @@ static void _cuda_chain_hmm_forward(const int32_cuda *backward_transition_indice
 }
 
 
-//template <typename BaseFloat>
 __global__
 static void _cuda_chain_hmm_backward(const int32_cuda *forward_transition_indices,
-				     const int32_cuda *forward_transitions,
+                                     const int32_cuda *forward_transitions,
                                      const BaseFloat *forward_transition_probs,
                                      int32_cuda num_sequences, int32_cuda num_hmm_states,
                                      const BaseFloat *probs, int32_cuda prob_stride,
@@ -258,7 +255,7 @@ static void _cuda_chain_hmm_backward(const int32_cuda *forward_transition_indice
   this_beta[h * num_sequences + s] = beta;
 }
 
-//template <typename BaseFloat>
+
 void cuda_chain_hmm_forward(dim3 Gr, dim3 Bl,
 			    const int32_cuda *backward_transition_indices,
 			    const int32_cuda *backward_transitions,
@@ -271,12 +268,11 @@ void cuda_chain_hmm_forward(dim3 Gr, dim3 Bl,
 			    BaseFloat *this_alpha) {
   _cuda_chain_hmm_forward<<<Gr,Bl>>>(backward_transition_indices, backward_transitions,
                                      backward_transition_probs,
-				     num_sequences, num_hmm_states,
+                                     num_sequences, num_hmm_states,
                                      probs, prob_stride,
                                      prev_alpha, this_alpha);
 }
 
-//template <typename BaseFloat>
 void cuda_chain_hmm_backward(dim3 Gr, dim3 Bl,
 			     const int32_cuda *forward_transition_indices,
 			     const int32_cuda *forward_transitions,
@@ -291,7 +287,7 @@ void cuda_chain_hmm_backward(dim3 Gr, dim3 Bl,
 			     BaseFloat *log_prob_deriv,
 			     int32_cuda log_prob_deriv_stride) {
   _cuda_chain_hmm_backward<<<Gr,Bl>>>(forward_transition_indices, forward_transitions,
-				      forward_transition_probs,
+                                      forward_transition_probs,
                                       num_sequences, num_hmm_states,
                                       probs, prob_stride,
                                       this_alpha, next_beta,

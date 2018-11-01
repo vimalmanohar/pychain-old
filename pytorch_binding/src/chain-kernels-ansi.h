@@ -18,8 +18,8 @@
 // limitations under the License.
 
 
-#ifndef KALDI_CHAIN_CHAIN_KERNELS_ANSI_H_
-#define KALDI_CHAIN_CHAIN_KERNELS_ANSI_H_
+#ifndef CHAIN_CHAIN_KERNELS_ANSI_H_
+#define CHAIN_CHAIN_KERNELS_ANSI_H_
 #include <ATen/ATen.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -30,36 +30,33 @@ enum { kThresholdingPowerOfTwo = 14 };
 #if HAVE_CUDA == 1
 extern "C" {
   
-//template <typename scalar_t>
-  void cuda_chain_hmm_backward(dim3 Gr, dim3 Bl,
-                               const int32_cuda *forward_transition_indices,
-                               const int32_cuda *forward_transitions,
-			       const BaseFloat *forward_transition_probs,
-                               int32_cuda num_sequences,
-                               int32_cuda num_hmm_states,
-                               const BaseFloat *probs,
-                               int32_cuda prob_stride,
-                               const BaseFloat *this_alpha,
-                               const BaseFloat *next_beta,
-                               BaseFloat *this_beta,
-                               BaseFloat *log_prob_deriv,
-                               int32_cuda log_prob_deriv_stride);
+void cuda_chain_hmm_backward(dim3 Gr, dim3 Bl,
+                             const int32_cuda *forward_transition_indices,
+                             const int32_cuda *forward_transitions,
+                             const BaseFloat *forward_transition_probs,
+                             int32_cuda num_sequences,
+                             int32_cuda num_hmm_states,
+                             const BaseFloat *probs,
+                             int32_cuda prob_stride,
+                             const BaseFloat *this_alpha,
+                             const BaseFloat *next_beta,
+                             BaseFloat *this_beta,
+                             BaseFloat *log_prob_deriv,
+                             int32_cuda log_prob_deriv_stride);
 
-  //template <typename BaseFloat>
-  void cuda_chain_hmm_forward(dim3 Gr, dim3 Bl,
-                              const int32_cuda *backward_transition_indices,
-                              const int32_cuda *backward_transitions,
-			      const BaseFloat *backward_transition_probs,
-                              int32_cuda num_sequences,
-                              int32_cuda num_hmm_states,
-                              const BaseFloat *probs,
-                              int32_cuda prob_stride,
-                              const BaseFloat *prev_alpha,
-                              BaseFloat *this_alpha);
+void cuda_chain_hmm_forward(dim3 Gr, dim3 Bl,
+                            const int32_cuda *backward_transition_indices,
+                            const int32_cuda *backward_transitions,
+                            const BaseFloat *backward_transition_probs,
+                            int32_cuda num_sequences,
+                            int32_cuda num_hmm_states,
+                            const BaseFloat *probs,
+                            int32_cuda prob_stride,
+                            const BaseFloat *prev_alpha,
+                            BaseFloat *this_alpha);
 
 } // extern "C"
 
 #endif  // HAVE_CUDA
 
-
-#endif  // KALDI_CHAIN_CHAIN_KERNELS_ANSI_H_
+#endif  // CHAIN_CHAIN_KERNELS_ANSI_H_
