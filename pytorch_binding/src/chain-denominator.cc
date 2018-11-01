@@ -27,7 +27,7 @@ DenominatorComputation::DenominatorComputation(
     const ChainTrainingOptions &opts,
     const DenominatorGraph &den_graph,
     int32 num_sequences,
-    at::Tensor nnet_output):
+    const at::Tensor &nnet_output):
     opts_(opts),
     den_graph_(den_graph),
     num_sequences_(num_sequences),
@@ -38,19 +38,19 @@ DenominatorComputation::DenominatorComputation(
            std::min<int32>(nnet_output.size(0),
                            static_cast<int32>(kMaxDerivTimeSteps) *
                            num_sequences_)},
-          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+          at::device(nnet_output.is_cuda() ? at::CPU_OR_CUDA : at::kCPU).dtype(at::kFloat))),
     alpha_(torch::empty(
           {frames_per_sequence_ + 1, den_graph_.NumStates() * num_sequences_ + num_sequences_},
-          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+          at::device(nnet_output.is_cuda() ? at::CPU_OR_CUDA : at::kCPU).dtype(at::kFloat))),
     beta_(torch::empty(
           {2, den_graph_.NumStates() * num_sequences_ + num_sequences_},
-          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+          at::device(nnet_output.is_cuda() ? at::CPU_OR_CUDA : at::kCPU).dtype(at::kFloat))),
     tot_prob_(torch::empty({num_sequences_},
-          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+          at::device(nnet_output.is_cuda() ? at::CPU_OR_CUDA : at::kCPU).dtype(at::kFloat))),
     tot_log_prob_(torch::empty({num_sequences_},
-          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+          at::device(nnet_output.is_cuda() ? at::CPU_OR_CUDA : at::kCPU).dtype(at::kFloat))),
     log_correction_term_(torch::empty({num_sequences_},
-          at::device(nnet_output.is_cuda() ? at::kCUDA : at::kCPU).dtype(at::kFloat))),
+          at::device(nnet_output.is_cuda() ? at::CPU_OR_CUDA : at::kCPU).dtype(at::kFloat))),
     ok_(true) {
   // We don't let leaky_hmm_coefficient be exactly zero (although that would
   // make sense mathematically, corresponding to "turning off" the leaky HMM),
@@ -232,6 +232,9 @@ void DenominatorComputation::Beta(int32 t) {
   at::Tensor this_beta_dash = beta_.narrow(0, t % 2, 1).squeeze();
   
   int32 this_beta_size = den_graph_.NumStates() * num_sequences_;
+  
+  assert(this_beta_dash.dim() == 1 && 
+         this_beta_dash.size(0) == this_beta_size + num_sequences_);
 
   // create a 'fake matrix' for the regular beta-dash (which is
   // the counterpart of alpha-dash)- view this row as a matrix.
@@ -239,12 +242,20 @@ void DenominatorComputation::Beta(int32 t) {
   at::Tensor beta_dash_mat = this_beta_dash
     .narrow(0, 0, this_beta_size)
     .view({den_graph_.NumStates(), num_sequences_});
+  assert(beta_dash_mat.dim() == 2 && 
+         beta_dash_mat.size(0) == den_graph_.NumStates() && 
+         beta_dash_mat.size(1) == num_sequences_);
 
   // making the t index implicit, the beta-dash-sum for each sequence is the sum
   // over all states i of beta_i * opts_.leaky_hmm_coefficient * initial_prob_i.
   at::Tensor beta_dash_sum_vec = this_beta_dash
-    .narrow(0, this_beta_size, num_sequences_).squeeze();
+    .narrow(0, this_beta_size, num_sequences_);
+  assert(beta_dash_sum_vec.dim() == 1 && 
+         beta_dash_sum_vec.size(0) == num_sequences_);
 
+  assert(den_graph_.InitialProbs().size(0) == den_graph_.NumStates() &&
+         den_graph_.InitialProbs().is_cuda() == beta_dash_mat.is_cuda() &&
+         den_graph_.InitialProbs().is_variable() == beta_dash_mat.is_variable());
   beta_dash_sum_vec.addmv_(
       beta_dash_mat.transpose(0, 1), 
       den_graph_.InitialProbs(), 0.0, opts_.leaky_hmm_coefficient);

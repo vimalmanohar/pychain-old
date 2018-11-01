@@ -198,7 +198,7 @@ class DenominatorComputation {
   DenominatorComputation(const ChainTrainingOptions &opts,
                          const DenominatorGraph &den_graph,
                          int32 num_sequences,
-                         at::Tensor nnet_output);
+                         const at::Tensor &nnet_output);
 
   // Does the forward computation, and returns the total log-like summed over
   // all sequences.  You will have to scale this by any supervision weighting
